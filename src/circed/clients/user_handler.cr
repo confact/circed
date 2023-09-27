@@ -5,7 +5,7 @@ module Circed
     class NicknameNoUsedError < Exception; end
 
     @@clients : Hash(String, Circed::Client) = {} of String => Circed::Client
-    @@users : Array(Circed::User) = [] of Circed::User
+    @@users : Set(Circed::User) = Set(Circed::User).new
 
     def self.size
       @@clients.size
@@ -25,12 +25,10 @@ module Circed
     end
 
     def self.changed_nickname(old_nickname : String, new_nickname : String)
-      client = @@clients[old_nickname]?
-      raise NicknameNoUsedError.new if client.nil?
-      if client
-        @@clients[new_nickname] = client
-        @@clients.delete(old_nickname)
-      end
+      client = @@clients[old_nickname]
+      raise NicknameNoUsedError.new unless client
+      @@clients[new_nickname] = client
+      @@clients.delete(old_nickname)
     end
 
     def self.client_exists?(nickname : Nil)
@@ -38,7 +36,7 @@ module Circed
     end
 
     def self.client_exists?(nickname : String)
-      !@@clients[nickname]?.nil?
+      @@clients.has_key?(nickname)
     end
 
     def self.nickname_used?(nickname : String)
@@ -46,8 +44,7 @@ module Circed
     end
 
     def self.nickname_used?(payload : FastIRC::Message)
-      return false unless payload.prefix.try(&.user)
-      client_exists?(payload.prefix.try(&.user))
+      payload.prefix.try(&.user) && client_exists?(payload.prefix.try(&.user))
     end
 
     def self.remove_connection(nickname : String)

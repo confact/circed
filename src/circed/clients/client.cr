@@ -106,10 +106,8 @@ module Circed
 
     def send_message(message)
       Log.info { message }
-      if closed?
-        Log.debug { "Socket is closed, can't send message" }
-        return
-      end
+      return log_closed_socket_and_exit if closed?
+
       socket.try(&.puts(message + "\n"))
     end
 
@@ -122,33 +120,28 @@ module Circed
     end
 
     def send_message(prefix, command, *params)
-      if closed?
-        Log.debug { "Socket is closed, can't send message" }
-        return
-      end
+      return log_closed_socket_and_exit if closed?
       message = "#{prefix} #{command} #{params.join(" ")}\n"
       Log.info { message }
       socket.try(&.puts(message))
     end
 
     def send_message_to_receiver(command, sender_nickname, sender_user, sender_host, params : Array(String))
-      return unless socket
-      update_activity
-      prefix = FastIRC::Prefix.new(source: sender_nickname, user: sender_user, host: sender_host)
-      FastIRC::Message.new(command, [user.not_nil!.name] + params, prefix: prefix).to_s(socket.not_nil!)
-      Log.debug { "sending message to #{sender_nickname}" }
-      if closed?
-        Log.debug { "Socket is closed, can't send message" }
-        return
-      end
+      send_message_common(command, sender_nickname, sender_user, sender_host, [user.not_nil!.name] + params)
     end
 
     def send_message_to_server(command, sender_nickname, sender_user, sender_host, params : Array(String))
+      send_message_common(command, sender_nickname, sender_user, sender_host, params)
+    end
+
+    def send_message_common(command, sender_nickname, sender_user, sender_host, params : Array(String))
       return unless socket
+
       update_activity
       prefix = FastIRC::Prefix.new(source: sender_nickname, user: sender_user, host: sender_host)
       FastIRC::Message.new(command, params, prefix: prefix).to_s(socket.not_nil!)
       Log.debug { "sending message to #{sender_nickname}" }
+      log_closed_socket_and_exit if closed?
     end
 
     def close
@@ -198,6 +191,10 @@ module Circed
     private def get_hostmask : String?
       hostname = get_hostname
       "#{nickname}!#{user.try(&.name)}@#{hostname}"
+    end
+
+    private def log_closed_socket_and_exit
+     Log.debug { "Socket is closed, can't send message" }
     end
   end
 end

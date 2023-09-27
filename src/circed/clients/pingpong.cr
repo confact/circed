@@ -32,20 +32,25 @@ module Circed
     end
 
     def ping(params : Array(String))
-      if !@last_pong || (@last_pong && @last_pong.not_nil! < 5.seconds.ago)
-        Log.debug { "PONG #{nickname}" }
+      handle_heartbeat("PING", @last_pong) do
         send_message(create_pong_message(params))
       end
       @last_ping = Time.utc
     end
 
     def pong(params : Array(String))
-      if !@last_ping || (@last_ping && @last_ping.not_nil! < 5.seconds.ago)
-        Log.debug { "PING #{nickname}" }
+      handle_heartbeat("PONG", @last_ping) do
         send_message(create_ping_message)
       end
       @last_pong = Time.utc
       @last_ping = @last_pong
+    end
+
+    private def handle_heartbeat(type : String, last_time : Time?)
+      if last_time.nil? || last_time < 5.seconds.ago
+        Log.debug { "#{type} #{nickname}" }
+        yield
+      end
     end
 
     def stop_ping

@@ -2,7 +2,6 @@ module Circed
   class ChannelUser
     getter client : Client
     getter channel : Channel
-
     getter modes : UserMode
 
     def initialize(client, channel)
@@ -19,11 +18,9 @@ module Circed
       @modes.remove(mode)
     end
 
-    def to_s
-      String.build do |io|
-        io << modes.highest_mode
-        io << client.nickname
-      end
+    def to_s(io : IO)
+      io << modes.highest_mode
+      io << client.nickname
     end
 
     def nickname

@@ -17,37 +17,29 @@ module Circed
     end
 
     def self.add_channel(channel : String) : Channel
-      if @@channels[channel]? == nil
-        @@channels[channel] = Channel.new(channel)
-      end
-
-      @@channels[channel]
+      @@channels[channel] ||= Channel.new(channel)
     end
 
     def self.add_channel(channel : Channel) : Channel
-      @@channels[channel.name] = channel
+      @@channels[channel.name] ||= channel
     end
 
     def self.remove_user_from_channel(channel : String, client : Client)
-      if @@channels[channel]? != nil
-        @@channels[channel].remove_client(client)
-        if @@channels[channel].channel_empty?
-          @@channels.delete(channel)
-        end
+      if channel_obj = @@channels[channel]?
+        channel_obj.remove_client(client)
+        @@channels.delete(channel) if channel_obj.channel_empty?
       end
     end
 
     def self.remove_user_from_all_channels(client : Client)
-      @@channels.each do |_channel, channel_obj|
+      @@channels.each do |channel_name, channel_obj|
         channel_obj.remove_client(client)
-        if channel_obj.channel_empty?
-          @@channels.delete(channel_obj)
-        end
+        @@channels.delete(channel_name) if channel_obj.channel_empty?
       end
     end
 
     def self.send_to_all_channels(client : Client, *args)
-      @@channels.each do |_channel, channel_obj|
+      @@channels.each_value do |channel_obj|
         channel_obj.send_raw(client, *args)
       end
     end
@@ -76,11 +68,7 @@ module Circed
     end
 
     def self.channel_exists?(channel : String)
-      if @@channels[channel]? != nil
-        true
-      else
-        false
-      end
+      @@channels.has_key?(channel)
     end
 
     def self.size
@@ -91,42 +79,37 @@ module Circed
       @@channels.keys
     end
 
+    def self.channel_is_invite_only?(channel : String) : Bool
+      channel_obj = @@channels[channel]?
+      channel_obj ? channel_obj.invite_only? : false
+    end
+
+    def self.user_has_invite?(channel : String, client : Client) : Bool
+      channel_obj = @@channels[channel]?
+      channel_obj ? channel_obj.invited?(client) : false
+    end
+
     def self.channel_is_private?(channel : String) : Bool
-      if @@channels[channel]? != nil
-        @@channels[channel].private?
-      else
-        false
-      end
+      channel_obj = @@channels[channel]?
+      channel_obj ? channel_obj.private? : false
     end
 
     def self.channel_has_password?(channel : String) : Bool
-      if @@channels[channel]? != nil
-        @@channels[channel].channel_password != nil
-      else
-        false
-      end
+      channel_obj = @@channels[channel]?
+      return false unless channel_obj
+      !channel_obj.channel_password.nil?
     end
 
     def self.channel_password(channel : String) : String?
-      if @@channels[channel]? != nil
-        @@channels[channel].channel_password
-      else
-        nil
-      end
+      @@channels[channel]?.try(&.channel_password)
     end
 
     def self.change_mode(channel : String, mode : String, client : Client)
-      if @@channels[channel]?
-        @@channels[channel].change_mode(mode, client)
-      end
+      @@channels[channel]?.try(&.change_mode(mode, client))
     end
 
     def self.user_in_channel?(channel : String, client : Client)
-      if @@channels[channel]?
-        @@channels[channel].user_in_channel?(client)
-      else
-        false
-      end
+      @@channels[channel]?.try(&.user_in_channel?(client)) || false
     end
   end
 end

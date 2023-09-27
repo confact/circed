@@ -11,8 +11,8 @@ module Circed
 
     getter modes : Hash(String, String?) = {} of String => String?
 
-    getter users : Array(ChannelUser) = [] of ChannelUser
-    getter invited_users : Array(Client) = [] of Client
+    getter users : Set(ChannelUser) = Set(ChannelUser).new
+    getter invited_users : Set(Client) = Set(Client).new
 
     VALID_CHAN_MODES = ['i', 'm', 'n', 'p', 's', 't', 'k', 'l', 'b', 'v', 'o']
 
@@ -171,10 +171,9 @@ module Circed
     end
 
     def is_banned?(user : Client) : Bool
-      hostmask = "#{user.nickname}!#{user.user.try(&.name)}@#{user.host}"
       bans.any? do |ban|
         regex = Regex.new(ban.gsub(".", "\\.").gsub("*", ".*"))
-        regex =~ hostmask
+        regex =~ user.hostmask
       end
     end
 
@@ -257,7 +256,7 @@ module Circed
       plus = mode_action == '+'
       minus = mode_action == '-'
 
-      if ['i', 'm', 'n', 't', 's'].includes?(flag)
+      if {'i', 'm', 'n', 't', 's'}.includes?(flag)
         if plus
           add_mode(flag.to_s)
         elsif minus
@@ -319,11 +318,15 @@ module Circed
 
       return "" if mode_chars.empty? && mode_params.empty?
 
-      "+#{mode_chars}#{mode_params}"
+      String.build do |s|
+        s << "+"
+        s << mode_chars
+        s << mode_params
+      end
     end
 
     def get_mode_param(mode : String) : String?
-      if modes.has_key?(mode) && modes[mode]
+      if modes.has_key?(mode)
         modes[mode]?
       end
     end
@@ -357,7 +360,7 @@ module Circed
     end
 
     def user_in_channel?(user)
-      @users.any? { |u| u.client == user }
+      find_user(user) != nil
     end
 
     def find_user(user) : ChannelUser?
@@ -368,22 +371,26 @@ module Circed
       @users.find { |u| u.nickname == nickname }
     end
 
-    def delete(user : Client)
-      @users.delete(find_user(user))
+    # Merged `delete` methods into one using overloading.
+    def delete(user : Client | String | ChannelUser)
+      case user
+      when Client
+        @users.delete(find_user(user))
+      when String
+        @users.delete(find_user_by_nickname(user))
+      when ChannelUser
+        @users.delete(user)
+      end
     end
 
-    def delete(nickname : String)
-      @users.delete(find_user_by_nickname(nickname))
-    end
-
-    def delete(user : ChannelUser)
-      @users.delete(user)
+    def delete(user : Nil)
+      # do nothing
     end
 
     def channel_full? : Bool
       # get the limit from the channel modes
-      limit = get_mode_param("l").try(&.to_i) || 0
-      limit != 0 && @users.size >= limit
+      limit = get_mode_param("l").try(&.to_i) || user_limit
+      @users.size >= limit
     end
 
     def channel_empty?
@@ -391,11 +398,11 @@ module Circed
     end
 
     def invite_only?
-      @mode.includes?("i")
+      has_mode?("i")
     end
 
     def invited?(user : Client)
-      @invited_users.any? { |u| u == user }
+      @invited_users.includes?(user)
     end
 
     def irc_name

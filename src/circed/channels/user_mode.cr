@@ -6,35 +6,27 @@ module Circed
       "h" => "%",
       "v" => "+",
     }
+    SORTED_MODES = VALID_MODES.sort.reverse!
 
     getter mode : String = ""
 
     def initialize(mode = "")
+      validate_mode(mode) unless mode.empty?
       @mode = mode
     end
 
-    def to_s
-      @mode
-    end
-
     def add(mode)
-      if VALID_MODES.includes?(mode)
-        @mode += mode unless @mode.includes?(mode)
-      else
-        raise Exception.new("Invalid mode: #{mode}")
-      end
+      validate_mode(mode)
+      @mode += mode unless @mode.includes?(mode)
     end
 
     def remove(mode)
-      if VALID_MODES.includes?(mode)
-        @mode = @mode.sub(mode, "")
-      else
-        raise Exception.new("Invalid mode: #{mode}")
-      end
+      validate_mode(mode)
+      @mode = @mode.delete(mode)
     end
 
     def highest_mode : String
-      VALID_MODES.sort.reverse!.each do |mode|
+      SORTED_MODES.each do |mode|
         if @mode.includes?(mode)
           return MODE_HASH[mode]
         end
@@ -55,15 +47,25 @@ module Circed
     end
 
     def is_operator?
-      @mode.includes?("o")
+      has_mode?("o")
     end
 
     def is_half_operator?
-      @mode.includes?("h")
+      has_mode?("h")
     end
 
     def is_voiced?
-      @mode.includes?("v")
+      has_mode?("v")
+    end
+
+    def to_s(io : IO)
+      io << mode
+    end
+
+    private def validate_mode(mode)
+      unless VALID_MODES.includes?(mode)
+        raise Exception.new("Invalid mode: #{mode}")
+      end
     end
   end
 end

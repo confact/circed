@@ -9,8 +9,12 @@ module Circed
     def initialize(@client : Client?, @mode, @name, @realname)
     end
 
-    def to_s
-      "#{name} #{mode} :#{realname}"
+    def to_s(io : IO)
+      io << name
+      io << " "
+      io << mode
+      io << " :"
+      io << realname
     end
 
     def is_operator?

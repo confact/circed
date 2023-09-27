@@ -1,5 +1,3 @@
-require "../../spec_helper"
-
 describe Circed::Actions::Kick do
   before_each do
     # Initialize and set up your mocks
@@ -22,7 +20,8 @@ describe Circed::Actions::Kick do
 
     Circed::ChannelHandler.add_channel(channel)
 
-    Circed::Actions::Kick.kick(sender, channel, "Bob", "testing kick")
+    # Call the .call method instead of .kick
+    Circed::Actions::Kick.call(sender, ["#test", "Bob", "testing kick"])
 
     channel.user_in_channel?(kicked_user).should be_false
   end
@@ -36,12 +35,12 @@ describe Circed::Actions::Kick do
     channel.find_user(sender).not_nil!.remove_mode("o")
 
     channel.user_in_channel?(sender).should be_true
-
     channel.find_user(sender).not_nil!.modes.to_s.should eq("")
 
     Circed::ChannelHandler.add_channel(channel)
 
-    Circed::Actions::Kick.kick(sender, channel, "Bob", "testing kick")
+    # Call the .call method instead of .kick
+    Circed::Actions::Kick.call(sender, ["#test", "Bob", "testing kick"])
 
     channel.user_in_channel?(kicked_user).should be_true
   end

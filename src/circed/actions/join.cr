@@ -18,7 +18,8 @@ module Circed
           send_error(sender, Numerics::ERR_USERONCHANNEL, ch, "User is already in channel")
           next
         end
-        if ChannelHandler.channel_is_private?(ch)
+
+        if ChannelHandler.channel_is_invite_only?(ch) && !ChannelHandler.user_has_invite?(ch, sender)
           send_error(sender, Numerics::ERR_INVITEONLYCHAN, ch, "Channel is invite only")
           next
         end
