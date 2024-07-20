@@ -13,7 +13,10 @@ module Circed
 
     @pingpong : Pingpong?
 
-    def initialize(@socket : IPSocket?)
+    @buffer : Array(String) = [] of String
+
+    def initialize(@socket : IPSocket?, buffer)
+      @buffer = buffer
       if @socket.is_a?(TCPSocket)
         @host = @socket.try(&.remote_address.to_s)
       end
@@ -28,42 +31,17 @@ module Circed
 
     def message_handling
       return unless socket
-      while !socket.not_nil!.closed?
+
+      #go through buffer first
+      @buffer.each do |buff|
+        FastIRC.parse(buff) do |payload|
+          irc_commands(payload)
+        end
+      end
+
+      while !socket.not_nil!.closed? 
         FastIRC.parse(socket.not_nil!) do |payload|
-          case payload.command
-          when Actions::List::COMMAND
-            Actions::List.call(self)
-          when Actions::Whois::COMMAND
-            Actions::Whois.call(self, payload.params.first)
-          when Actions::Nick::COMMAND
-            Actions::Nick.call(self, payload.params.first)
-          when "USER"
-            set_user(payload.params)
-          when "PONG"
-            pong(payload.params)
-          when "PING"
-            ping(payload.params)
-          when Actions::Join::COMMAND
-            next if payload.params.empty?
-            Actions::Join.call(self, payload.params.first)
-          when Actions::Part::COMMAND
-            Actions::Part.call(self, payload.params.first)
-          when Actions::Mode::COMMAND
-            Actions::Mode.call(self, payload.params)
-          when "QUIT"
-            quit(payload.params)
-          when Actions::Kick::COMMAND
-            Actions::Kick.call(self, payload.params)
-          when Actions::Topic::COMMAND
-            Actions::Topic.call(self, payload.params)
-          when Actions::Invite::COMMAND
-            invited_user = payload.params.first
-            Actions::Invite.call(self, invited_user, payload.params)
-          when "NOTICE"
-            notice(payload.params)
-          when Actions::Privmsg::COMMAND
-            Actions::Privmsg.call(self, payload.params.first, payload.params)
-          end
+          irc_commands(payload)
         end
 
         if closed?
@@ -181,6 +159,43 @@ module Circed
 
     def update_activity
       @last_activity = Time.utc
+    end
+
+    private def run_commands(payload : FastIRC::Payload)
+      case payload.command
+      when Actions::List::COMMAND
+        Actions::List.call(self)
+      when Actions::Whois::COMMAND
+        Actions::Whois.call(self, payload.params.first)
+      when Actions::Nick::COMMAND
+        Actions::Nick.call(self, payload.params.first)
+      when "USER"
+        set_user(payload.params)
+      when "PONG"
+        pong(payload.params)
+      when "PING"
+        ping(payload.params)
+      when Actions::Join::COMMAND
+        next if payload.params.empty?
+        Actions::Join.call(self, payload.params.first)
+      when Actions::Part::COMMAND
+        Actions::Part.call(self, payload.params.first)
+      when Actions::Mode::COMMAND
+        Actions::Mode.call(self, payload.params)
+      when "QUIT"
+        quit(payload.params)
+      when Actions::Kick::COMMAND
+        Actions::Kick.call(self, payload.params)
+      when Actions::Topic::COMMAND
+        Actions::Topic.call(self, payload.params)
+      when Actions::Invite::COMMAND
+        invited_user = payload.params.first
+        Actions::Invite.call(self, invited_user, payload.params)
+      when "NOTICE"
+        notice(payload.params)
+      when Actions::Privmsg::COMMAND
+        Actions::Privmsg.call(self, payload.params.first, payload.params)
+      end
     end
 
     private def get_hostname : String?

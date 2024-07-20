@@ -7,12 +7,12 @@ module Circed
     @last_ping : Time?
     @last_pong : Time?
 
-    getter client : Client
+    getter client : Client | LinkServer
 
     @task_ping : Tasker::Repeat(Int32) | Tasker::Repeat(Nil)
     @task_pong_check : Tasker::Repeat(Int32) | Tasker::Repeat(Nil)
 
-    def initialize(@client : Client)
+    def initialize(@client : Client | LinkServer)
       @task_ping = Tasker.every(20.seconds) do
         stop_ping if client.closed?
         Log.info { "pinged #{nickname}" }

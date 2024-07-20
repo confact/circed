@@ -2,6 +2,7 @@ require "fast_irc"
 require "./circed/mixins/**"
 require "./circed/actions/mixins/**"
 require "./circed/**"
+require "../spec/support/dummy_socket.cr"
 
 # TODO: Write documentation for `Circed`
 module Circed

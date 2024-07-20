@@ -28,7 +28,37 @@ module Circed
       end
     end
 
-    def self.handle_client(client)
+    def self.handle_client(connection)
+      buffer = [] of String
+      type = nil
+      
+      loop do
+        message = connection.gets?.try(&.strip) || break
+    
+        buffer << message
+    
+        # Check if we can decide the type based on the buffered commands
+        if buffer.includes?("PASS") && buffer.includes?("SERVER")
+          type = :server
+          break
+        elsif buffer.includes?("NICK") && buffer.includes?("USER")
+          type = :client
+          break
+        end
+      end
+    
+      case type
+      when :server
+        handle_server_connection(connection, buffer)
+      when :client
+        handle_user_connection(connection, buffer)
+      else
+        Log.warn { "Unknown connection type: #{type}" }
+        connection.close
+      end
+    end
+
+    def self.handle_user_connection(client, buffer)
       if UserHandler.size >= config.max_users
         Log.warn { "User limit reached, refusing new client: #{client.remote_address}" }
         client.puts "ERROR :Closing Link: #{client.remote_address} (Max users limit reached)"
@@ -37,10 +67,15 @@ module Circed
         return
       end
 
-      new_client = Circed::Client.new(client)
+      new_client = Circed::Client.new(client, buffer)
       Log.debug { "new client: #{new_client.inspect}" }
       new_client.setup
       # new_client.send_message(motd)
+    end
+
+    def self.handle_server_connection(connection, buffer)
+      server = Circed::LinkServer.new(connection, buffer)
+      Log.debug { "new server: #{server.inspect}" }
     end
 
     def bootup_servers
